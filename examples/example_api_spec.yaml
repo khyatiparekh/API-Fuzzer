@@ -1,0 +1,361 @@
+openapi: 3.0.0
+info:
+  title: Your Flask App
+  description: API documentation for your Flask app
+  version: 1.0.0
+servers:
+  - url: http://10.0.0.28:5000/
+paths:
+  /:
+    get:
+      summary: List functionalities
+      description: Returns a list of available functionalities
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  functionalities:
+                    type: array
+                    items:
+                      type: string
+                      example: cloud
+                required:
+                  - functionalities
+
+  /cloud:
+    get:
+      summary: Get directory structure
+      description: Returns a nested dictionary representing the folder structure of the root directory
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  directory:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          example: file
+                          enum:
+                            - file
+                            - directory
+                          description: The type of the file or directory
+                        path:
+                          type: string
+                          example: /path/to/file
+                          description: The path to the file or directory
+                        size:
+                          type: integer
+                          example: 1024
+                          description: The size of the file in bytes (only applicable to files)
+                        modified:
+                          type: string
+                          format: date-time
+                          example: 2023-03-31T14:30:00Z
+                          description: The last modified date and time (only applicable to files)
+                required:
+                  - directory
+
+  /stock:
+    get:
+      summary: Get stock information
+      description: Returns the latest stock information for a given list of stocks
+      parameters:
+        - in: query
+          name: stocks_in_use
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+              example: AAPL
+          style: form
+          explode: true
+          description: A list of stock symbols
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stocks:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        symbol:
+                          type: string
+                          example: AAPL
+                          description: The stock symbol
+                        price:
+                          type: number
+                          example: 123.45
+                          description: The current price of the stock
+                required:
+                  - stocks
+
+  /create-folder:
+    post:
+      summary: Create a new folder
+      description: Creates a new folder with the specified name in the root directory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                folder_name:
+                  type: string
+                  example: new_folder
+              required:
+                - folder_name
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Bad Request
+
+  /download:
+    get:
+      summary: Download a file
+      description: Downloads the file with the specified path
+      parameters:
+        - in: query
+          name: file_path
+          required: true
+          schema:
+            type: string
+            example: /path/to/file
+          style: form
+          explode: true
+          description: The path to the file to download
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: File not found
+
+    post:
+      summary: Upload a file
+      description: Uploads a file to the specified directory
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The file to upload
+                directory:
+                  type: string
+                  example: /path/to/directory
+                  description: The directory to upload the file to (defaults to the root directory)
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Bad Request
+
+  /search:
+    post:
+      summary: Search for files
+      description: Returns a list of files that match the specified query
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                  example: '*.txt'
+                  description: The search query
+              required:
+                - query
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        path:
+                          type: string
+                          example: /path/to/file
+                          description: The path to the file
+                        size:
+                          type: integer
+                          example: 1024
+                          description: The size of the file in bytes
+                        modified:
+                          type: string
+                          format: date-time
+                          example: '2023-03-31T14:30:00Z'
+                          description: The last modified date and time
+                required:
+                  - files
+
+  /delete-file:
+    post:
+      summary: Delete a file
+      description: Deletes the file with the specified path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                file_path:
+                  type: string
+                  example: /path/to/file
+                  description: The path to the file to delete
+              required:
+                - file_path
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: File not found
+
+  /delete-folder:
+    post:
+      summary: Delete a folder
+      description: Deletes the folder with the specified path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                folder_path:
+                  type: string
+                  example: /path/to/folder
+                  description: The path to the folder to delete
+              required:
+                - folder_path
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: Folder not found
+
+  /show-data:
+    post:
+      summary: Show data
+      description: Returns a nested dictionary representing the folder structure of the specified directory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                directory:
+                  type: string
+                  example: /path/to/directory
+                  description: The path to the directory to show
+              required:
+                - directory
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  directory:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          example: file
+                          enum:
+                            - file
+                            - directory
+                          description: The type of the file or directory
+                        path:
+                          type: string
+                          example: /path/to/file
+                          description: The path to the file or directory
+                        size:
+                          type: integer
+                          example: 1024
+                          description: The size of the file in bytes (only applicable to files)
+                        modified:
+                          type: string
+                          format: date-time
+                          example: '2023-03-31T14:30:00Z'
+                          description: The last modified date and time (only applicable to files)
+                required:
+                  - directory
+
+  /initial_request:
+    post:
+      summary: Initial request
+      description: Sets the incoming section for the folder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                incoming_section:
+                  type: string
+                  example: incoming
+                  description: The incoming section for the folder
+              required:
+                - incoming_section
+      responses:
+        '200':
+          description: OK
+
+  /initial_download_request:
+    post:
+      summary: Initial download request
+      description: Sets the path of the file to be downloaded
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                file_path:
+                  type: string
+                  example: /path/to/file
+                  description: The path to the file to download
+              required:
+                - file_path
+      responses:
+        '200':
+          description: OK
+

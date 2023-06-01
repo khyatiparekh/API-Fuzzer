@@ -1,0 +1,470 @@
+{
+    "smithy": "1.0",
+    "shapes": {
+      "com.example.api.YourFlaskApp": {
+        "type": "service",
+        "version": "1.0.0",
+        "operations": [
+          "com.example.api.ListFunctionalities",
+          "com.example.api.GetDirectoryStructure",
+          "com.example.api.GetStockInformation",
+          "com.example.api.CreateNewFolder",
+          "com.example.api.DownloadFile",
+          "com.example.api.UploadFile",
+          "com.example.api.SearchFiles",
+          "com.example.api.DeleteFile",
+          "com.example.api.DeleteFolder",
+          "com.example.api.ShowData",
+          "com.example.api.InitialRequest",
+          "com.example.api.InitialDownloadRequest"
+        ]
+      },
+      "com.example.api.ListFunctionalities": {
+        "type": "operation",
+        "output": {
+          "target": "com.example.api.ListFunctionalitiesOutput"
+        }
+      },
+      "com.example.api.ListFunctionalitiesOutput": {
+        "type": "structure",
+        "members": {
+          "functionalities": {
+            "target": "smithy.api#List",
+            "member": {
+              "target": "smithy.api#String"
+            }
+          }
+        },
+        "required": ["functionalities"]
+      },
+      "com.example.api.GetDirectoryStructure": {
+        "type": "operation",
+        "output": {
+          "target": "com.example.api.GetDirectoryStructureOutput"
+        }
+      },
+      "com.example.api.GetDirectoryStructureOutput": {
+        "type": "structure",
+        "members": {
+          "directory": {
+            "target": "com.example.api.Directory"
+          }
+        },
+        "required": ["directory"]
+      },
+      "com.example.api.Directory": {
+        "type": "map",
+        "key": {
+          "target": "smithy.api#String"
+        },
+        "value": {
+          "target": "com.example.api.FileOrDirectory"
+        }
+      },
+      "com.example.api.FileOrDirectory": {
+        "type": "structure",
+        "members": {
+          "type": {
+            "target": "com.example.api.FileOrDirectoryType",
+            "traits": {
+              "smithy.api#documentation": "The type of the file or directory"
+            }
+          },
+          "path": {
+            "target": "smithy.api#String",
+            "traits": {
+              "smithy.api#documentation": "The path to the file or directory"
+            }
+          },
+          "size": {
+            "target": "smithy.api#Integer",
+            "traits": {
+              "smithy.api#documentation": "The size of the file in bytes (only applicable to files)"
+            }
+          },
+          "modified": {
+            "target": "smithy.api#Timestamp",
+            "traits": {
+              "smithy.api#documentation": "The last modified date and time (only applicable to files)"
+            }
+          }
+        }
+      },
+      "com.example.api.FileOrDirectoryType": {
+        "type": "string",
+        "enum": [
+          "file",
+          "directory"
+        ]
+      },
+      "com.example.api.GetStockInformation": {
+        "type": "operation",
+        "input": {
+          "target": "com.example.api.GetStockInformationInput"
+        },
+        "output": {
+          "target": "com.example.api.GetStockInformationOutput"
+        }
+      },
+      "com.example.api.GetStockInformationInput": {
+        "type": "structure",
+        "members": {
+        "stocks_in_use": {
+            "target": "smithy.api#List",
+            "member": {
+              "target": "smithy.api#String"
+            },
+            "traits": {
+              "smithy.api#httpQuery": "stocks_in_use[]",
+              "smithy.api#httpQueryExplode": true,
+              "smithy.api#required": true
+            }
+          }
+        },
+        "required": ["stocks_in_use"]
+      },
+      "com.example.api.GetStockInformationOutput": {
+        "type": "structure",
+        "members": {
+          "stocks": {
+            "target": "smithy.api#List",
+            "member": {
+              "target": "com.example.api.Stock"
+            }
+          }
+        },
+        "required": ["stocks"]
+      },
+      "com.example.api.Stock": {
+        "type": "structure",
+        "members": {
+          "symbol": {
+            "target": "smithy.api#String",
+            "traits": {
+              "smithy.api#documentation": "The stock symbol"
+            }
+          },
+          "price": {
+            "target": "smithy.api#Float",
+            "traits": {
+              "smithy.api#documentation": "The current price of the stock"
+            }
+          }
+        }
+      },
+      "com.example.api.CreateNewFolder": {
+        "type": "operation",
+        "input": {
+          "target": "com.example.api.CreateNewFolderInput"
+        },
+        "output": {
+          "target": "com.example.api.CreateNewFolderOutput"
+        }
+      },
+      "com.example.api.CreateNewFolderInput": {
+        "type": "structure",
+        "members": {
+          "folder_name": {
+            "target": "smithy.api#String",
+            "traits": {
+              "smithy.api#httpPayload": "folder_name",
+              "smithy.api#required": true
+            }
+          }
+        },
+        "required": ["folder_name"]
+      },
+      "com.example.api.CreateNewFolderOutput": {
+        "type": "structure",
+        "members": {
+          "status": {
+            "target": "smithy.api#Integer",
+            "traits": {
+              "smithy.api#httpResponseCode": true
+            }
+          }
+        }
+      },
+      "com.example.api.DownloadFile": {
+        "type": "operation",
+        "input": {
+          "target": "com.example.api.DownloadFileInput"
+        },
+        "output": {
+          "target": "com.example.api.DownloadFileOutput"
+        }
+      },
+      "com.example.api.DownloadFileInput": {
+        "type": "structure",
+        "members": {
+          "file_path": {
+            "target": "smithy.api#String",
+            "traits": {
+              "smithy.api#httpQuery": "file_path",
+              "smithy.api#httpQueryExplode": true,
+              "smithy.api#required": true
+            }
+          }
+        },
+        "required": ["file_path"]
+      },
+      "com.example.api.DownloadFileOutput": {
+        "type": "structure",
+        "members": {
+          "status": {
+            "target": "smithy.api#Integer",
+            "traits": {
+              "smithy.api#httpResponseCode": true
+            }
+          }
+        }
+      },
+      "com.example.api.UploadFile": {
+        "type": "operation",
+        "input": {
+          "target": "com.example.api.UploadFileInput"
+        },
+        "output": {
+          "target": "com.example.api.UploadFileOutput"
+        }
+      },
+      "com.example.api.UploadFileInput": {
+        "type": "structure",
+        "members": {
+          "file": {
+            "target": "smithy.api#Blob",
+            "traits": {
+              "smithy.api#httpPayload": "file",
+              "smithy.api#required": true,
+              "smithy.api#mediaType": "multipart/form-data"
+            }
+          },
+          "directory": {
+            "target": "smithy.api#String",
+            "traits": {
+              "smithy.api#httpPayload": "directory"
+            }
+          }
+        },
+        "required": ["file"]
+      },
+      "com.example.api.UploadFileOutput": {
+        "type": "structure",
+        "members": {
+          "status": {
+            "target": "smithy.api#Integer",
+            "traits": {
+              "smithy.api#httpResponseCode": true
+            }
+          }
+        }
+      },
+      "com.example.api.SearchFiles": {
+        "type": "operation",
+        "input": {
+          "target": "com.example.api.SearchFilesInput"
+        },
+        "output": {
+          "target": "com.example.api.SearchFilesOutput"
+        }
+      },
+      "com.example.api.SearchFilesInput": {
+        "type": "structure",
+        "members": {
+          "query": {
+            "target": "smithy.api#String",
+            "traits": {
+              "smithy.api#httpPayload": "query",
+              "smithy.api#required": true
+            }
+          }
+        },
+        "required": ["query"]
+      },
+      "com.example.api.SearchFilesOutput": {
+        "type": "structure",
+        "members": {
+          "files": {
+            "target": "smithy.api#List",
+            "member": {
+              "target": "com.example.api.FileItem"
+            },
+            "traits": {
+              "smithy.api#required": true
+            }
+          }
+        },
+        "required": ["files"]
+      },
+      "com.example.api.DeleteFile": {
+        "type": "operation",
+        "input": {
+          "target": "com.example.api.DeleteFileInput"
+        },
+        "output": {
+          "target": "com.example.api.DeleteFileOutput"
+        }
+      },
+      "com.example.api.DeleteFileInput": {
+        "type": "structure",
+        "members": {
+          "file_path": {
+            "target": "smithy.api#String",
+            "traits": {
+              "smithy.api#httpPayload": "file_path",
+              "smithy.api#required": true
+            }
+          }
+        },
+        "required": ["file_path"]
+      },
+      "com.example.api.DeleteFileOutput": {
+        "type": "structure",
+        "members": {
+          "status": {
+            "target": "smithy.api#Integer",
+            "traits": {
+              "smithy.api#httpResponseCode": true
+            }
+          }
+        }
+      },
+      "com.example.api.DeleteFolder": {
+        "type": "operation",
+        "input": {
+          "target": "com.example.api.DeleteFolderInput"
+        },
+        "output": {
+          "target": "com.example.api.DeleteFolderOutput"
+        }
+      },
+      "com.example.api.DeleteFolderInput": {
+        "type": "structure",
+        "members": {
+          "folder_path": {
+            "target": "smithy.api#String",
+            "traits": {
+              "smithy.api#httpPayload": "folder_path",
+              "smithy.api#required": true
+            }
+          }
+        },
+        "required": ["folder_path"]
+      },
+      "com.example.api.DeleteFolderOutput": {
+        "type": "structure",
+        "members": {
+          "status": {
+            "target": "smithy.api#Integer",
+            "traits": {
+              "smithy.api#httpResponseCode": true
+            }
+          }
+        }
+      },
+      "com.example.api.ShowData": {
+        "type": "operation",
+        "input": {
+          "target": "com.example.api.ShowDataInput"
+        },
+        "output": {
+          "target": "com.example.api.ShowDataOutput"
+        }
+      },
+      "com.example.api.ShowDataInput": {
+        "type": "structure",
+        "members": {
+          "directory": {
+            "target": "smithy.api#String",
+            "traits": {
+              "smithy.api#httpPayload": "directory",
+              "smithy.api#required": true
+            }
+          }
+        },
+        "required": ["directory"]
+      },
+      "com.example.api.ShowDataOutput": {
+        "type": "structure",
+        "members": {
+          "directory": {
+            "target": "com.example.api.DirectoryItem",
+            "traits": {
+              "smithy.api#required": true
+            }
+          }
+        },
+        "required": ["directory"]
+      },
+      "com.example.api.InitialRequest": {
+        "type": "operation",
+        "input": {
+          "target": "com.example.api.InitialRequestInput"
+        },
+        "output": {
+          "target": "com.example.api.InitialRequestOutput"
+        }
+      },
+      "com.example.api.InitialRequestInput": {
+        "type": "structure",
+        "members": {
+          "incoming_section": {
+            "target": "smithy.api#String",
+            "traits": {
+              "smithy.api#httpPayload": "incoming_section",
+              "smithy.api#required": true
+            }
+          }
+        },
+        "required": ["incoming_section"]
+      },
+      "com.example.api.InitialRequestOutput": {
+        "type": "structure",
+        "members": {
+          "status": {
+            "target": "smithy.api#Integer",
+            "traits": {
+              "smithy.api#httpResponseCode": true
+            }
+          }
+        }
+      },
+      "com.example.api.InitialDownloadRequest": {
+        "type": "operation",
+        "input": {
+          "target": "com.example.api.InitialDownloadRequestInput"
+        },
+        "output": {
+          "target": "com.example.api.InitialDownloadRequestOutput"
+        }
+      },
+      "com.example.api.InitialDownloadRequestInput": {
+        "type": "structure",
+        "members": {
+          "file_path": {
+            "target": "smithy.api#String",
+            "traits": {
+              "smithy.api#httpPayload": "file_path",
+              "smithy.api#required": true
+            }
+          }
+        },
+        "required": ["file_path"]
+      },
+      "com.example.api.InitialDownloadRequestOutput": {
+        "type": "structure",
+        "members": {
+          "status": {
+            "target": "smithy.api#Integer",
+            "traits": {
+              "smithy.api#httpResponseCode": true
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  
+  
+  

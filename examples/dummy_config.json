@@ -1,0 +1,10 @@
+{
+    "cookie_file": "cookie.txt",
+    "api_spec": "dummy_spec.yaml",
+    "threads": 4,
+    "rate_limit": 10,
+    "timeout": 5,
+    "base_path": "http://10.0.0.28:5000",
+    "proxy": ""
+  }
+  

@@ -1,0 +1,12 @@
+argparse
+PyYAML
+keyboard
+requests
+pyjwt
+termcolor
+tabulate
+tqdm
+requests-toolbelt
+beautifulsoup4
+chardet
+urllib3
