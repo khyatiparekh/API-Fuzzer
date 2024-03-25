@@ -1,4 +1,5 @@
 # API Fuzzer
+Contributors: Vishal-Bedi
 
 This is a comprehensive, feature-rich API Fuzzer designed to help discover potential vulnerabilities in your application.
 Features:
