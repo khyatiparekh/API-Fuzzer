@@ -79,7 +79,7 @@ class Fuzzer:
             headers["Cookie"] = self.config['cookies']
 
         if self.config.get("headers"):
-            headers_list = self.config["headers"].split(',')
+            headers_list = self.config["headers"].split('|-|')
 
             for header in headers_list:
                 key, value = header.split(':')
