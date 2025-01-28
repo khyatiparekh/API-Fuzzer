@@ -33,7 +33,7 @@ To use the fuzzer, simply call the main CLI file with the appropriate options.
     --timeout - Request timeout in seconds.
     --jwt - JWT session cookie.
     --cookies - Session cookies.
-    --headers - Custom headers. Example: header1:test1,header2:test2,header3:test3.
+    --headers - Custom headers. Example: header1:test1|-|header2:test2|-|header3:test3.
     -m / --modules - List of module names to run. If not provided, all modules will be run. Example: BigIntegerDetector,IntegerOverflowDetector.
     -p / --proxy - Proxy URL.
 
