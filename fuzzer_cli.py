@@ -69,7 +69,7 @@ def parse_args():
 
     parser.add_argument(
         "--headers",
-        help="Custom headers. Example: header1:test1,header2:test2,header3:test3",
+        help="Custom headers. Example: header1:test1|-|header2:test2|-|header3:test3",
     )
 
     parser.add_argument(
