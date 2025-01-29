@@ -11,7 +11,7 @@ class APISpec:
 
     def _load_api_spec(self):
         try:
-            with open(self.api_spec_file, 'r') as f:
+            with open(self.api_spec_file, 'r', encoding='utf-8') as f:  # ✅ Set encoding to UTF-8
                 if self.api_spec_file.endswith(('.yaml', '.yml')):
                     return yaml.safe_load(f)
                 elif self.api_spec_file.endswith('.json'):
@@ -22,6 +22,7 @@ class APISpec:
             raise FileNotFoundError(f"File not found: {self.api_spec_file}")
         except (yaml.YAMLError, json.JSONDecodeError) as e:
             raise ValueError(f"Error parsing API specification file: {e}")
+
 
     def _extract_parameters(self, details):
         """ Extracts both URL and Query parameters. """
