@@ -12,7 +12,8 @@ def extract_jwt_from_headers_and_cookies(headers, cookies):
 
     # Extract JWTs from headers
     if headers:
-        for header_name, header_value in headers.items():
+        header_pairs = headers.split("|-|")
+        for header_value in header_pairs:
             matches = re.findall(JWT_REGEX, header_value)
             jwt_tokens.update(matches)
 
