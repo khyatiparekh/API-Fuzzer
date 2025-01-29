@@ -32,36 +32,32 @@ class PayloadGenerator:
         return mutator(self, payload)
 
     def generate_payloads(self, context, max_combinations=None):
-        payload_types = self.context_payloads.get(context, [])
+        """ Generate fuzzing payloads while preventing excessive memory usage. """
+        payload_types = self.context_payloads.get(context, {})
 
         if not payload_types:
             return []
 
-        combined_payloads = itertools.product(*[getattr(self, pt) for pt in payload_types["payload_types"]])
+        # Sample payload lists before generating combinations
+        sampled_payloads = []
+        for pt in payload_types.get("payload_types", []):
+            payload_list = getattr(self, pt, [])
+            if len(payload_list) > max_combinations:
+                sampled_payloads.append(random.sample(payload_list, max_combinations))
+            else:
+                sampled_payloads.append(payload_list)
 
-        # Calculate the cartesian product length
-        product_length = 1
-        for pt in payload_types["payload_types"]:
-            product_length *= len(getattr(self, pt))
+        # Generate Cartesian product of sampled payloads
+        combined_payloads = list(itertools.product(*sampled_payloads))
 
-        if max_combinations is not None:
-            # Get a random sample of indices
-            indices = random.sample(range(product_length), min(max_combinations, product_length))
-            indices_set = set(indices)
-
-            # Create a separate function that yields elements from combined_payloads with the selected indices
-            def sampled_product(combined_payloads, indices_set):
-                for i, item in enumerate(combined_payloads):
-                    if i in indices_set:
-                        yield item
-
-            combined_payloads = sampled_product(combined_payloads, indices_set)
+        # Further limit payloads if needed
+        if len(combined_payloads) > max_combinations:
+            combined_payloads = random.sample(combined_payloads, max_combinations)
 
         def payload_generator():
-            combined_payloads_list = list(combined_payloads)
             generated_payloads = []
 
-            for combination in combined_payloads_list:
+            for combination in combined_payloads:
                 mutated_payloads = tuple(self.apply_random_mutation(payload, context) for payload in combination)
                 injection_point = random.choice(self.injection_points)
 
@@ -72,7 +68,7 @@ class PayloadGenerator:
                         'injection_point': injection_point
                     })
 
-            for combination in combined_payloads_list:
+                # Add HTTP methods separately
                 for method in self.all_http_methods:
                     generated_payloads.append({
                         'type': context,
@@ -80,20 +76,19 @@ class PayloadGenerator:
                         'injection_point': "http_method"
                     })
 
+            # Additional payloads processing
             additional_payloads = self.context_payloads.get(context, {}).get("additional_payloads", {})
-            num_additional_payloads = product_length
-
             total_additional_payloads_generated = 0
 
             for payload_type, payload_info in additional_payloads.items():
-                num_injection_points = len(payload_info["injection_points"])
-                payloads_per_injection_point = num_additional_payloads // num_injection_points
-
                 for injection_point in payload_info["injection_points"]:
-                    if total_additional_payloads_generated >= num_additional_payloads:
+                    if total_additional_payloads_generated >= max_combinations:
                         break
 
-                    selected_payloads = random.sample(payload_info["payloads"], min(payloads_per_injection_point, len(payload_info["payloads"])))
+                    selected_payloads = random.sample(
+                        payload_info["payloads"], min(len(payload_info["payloads"]), max_combinations - total_additional_payloads_generated)
+                    )
+                    
                     for payload in selected_payloads:
                         generated_payloads.append({
                             'type': context,
@@ -101,11 +96,13 @@ class PayloadGenerator:
                             'injection_point': injection_point
                         })
                         total_additional_payloads_generated += 1
-                        if total_additional_payloads_generated >= num_additional_payloads:
+                        if total_additional_payloads_generated >= max_combinations:
                             break
 
             return generated_payloads
+
         return payload_generator()
+
 
     def mutate_length(self, payload, min_len=0, max_len=100):
         new_len = random.randint(min_len, max_len)
@@ -150,6 +147,8 @@ class PayloadGenerator:
         return len(list(itertools.product(*[getattr(self, pt) for pt in payload_types])))
 
     def generate_value(self, param_type):
+        """ Generate a random fuzzing payload based on the parameter type. """
+
         if param_type == "string":
             length = random.randint(1, 20)
             return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
@@ -158,12 +157,14 @@ class PayloadGenerator:
         elif param_type == "boolean":
             return random.choice([True, False])
         elif param_type == "float":
-            return random.uniform(-10000, 10000)
+            return round(random.uniform(-10000, 10000), 2)
         elif param_type == "list" or param_type == "array":
-            list_length = random.randint(1, 10)
+            list_length = random.randint(1, 5)
             return [self.generate_value("string") for _ in range(list_length)]
+        elif param_type == "object" or param_type == "dict":
+            return {f"key_{i}": self.generate_value("string") for i in range(random.randint(1, 3))}
         else:
-            return "unknown_type"
+            return "FUZZ_PAYLOAD"
 
 
 payload_lists = {
