@@ -2,6 +2,7 @@
 import inspect
 import json
 from urllib.parse import urlencode
+import uuid
 import keyboard
 import threading
 import time
@@ -348,9 +349,16 @@ class Fuzzer:
         os.makedirs(output_folder, exist_ok=True)
 
         print(colored(f"\n[#] Saving Reports\n", 'cyan'))
+        # Generate a timestamp and a unique identifier
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        unique_id = uuid.uuid4().hex[:8]  # Shortened UUID for readability
+                
         for output_format in output_formats:
             report_content = self.report_instance.generate_report(output_format=output_format)
-            output_filename = f"{output_folder}/report_{output_format}.{output_format}"
+            
+            # Add timestamp and unique ID to the filename
+            output_filename = f"{output_folder}/report_{output_format}_{timestamp}_{unique_id}.{output_format}"
+            
             if output_format == "html":
                 with open(output_filename, 'w', encoding='utf-8') as output_file:
                     output_file.write(report_content)
