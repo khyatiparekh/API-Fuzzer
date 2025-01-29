@@ -1,6 +1,7 @@
 # src/fuzzer/fuzzer.py
 import inspect
 import json
+from urllib.parse import urlencode
 import keyboard
 import threading
 import time
@@ -25,7 +26,7 @@ from src.utils.error_handling_and_retries import ExceptionCounter
 from src.fuzzer.response_analyzer import ResponseAnalyzer
 from src.fuzzer.payload_generator import PayloadGenerator, context_payloads
 from src.fuzzer.fuzz_request_generator import FuzzRequestGenerator
-from src.fuzzer.jwt_payload_configuration import check_jwt_configuration
+from src.fuzzer.jwt_payload_configuration import check_jwt_configuration, extract_jwt_from_headers_and_cookies
 
 commands = {
     colored("Pause", 'light_magenta'): "ctrl+p",
@@ -83,7 +84,7 @@ class Fuzzer:
 
             for header in headers_list:
                 key, value = header.split(':')
-                headers[key] = value
+                headers[key.strip()] = value.strip()
                             
         self.pre_fuzz_request = {
             "headers": headers,
@@ -205,36 +206,57 @@ class Fuzzer:
         while not fuzzer.stop_event.is_set() and not fuzzer.is_fuzzing_done():
             time.sleep(1)
 
-    def get_next_request(self, url, method, url_params=None, json_params=None):
-        request = copy.deepcopy(self.pre_fuzz_request)
-        if url_params is None:
-            url_params = {}
-        if json_params is None:
-            json_params = {}
 
-        request["method"] = method
-        request["url"] = url
-        request["url_params"] = url_params
-        request["json_params"] = json_params
+    def get_next_request(self, url, method, url_params=None, json_params=None):
+        """ Generates a request with URL parameters for GET and JSON parameters for POST. """
+        request = copy.deepcopy(self.pre_fuzz_request)
+
+        # Ensure default values for params
+        url_params = url_params or {}
+        json_params = json_params or {}
+
+        # Always include URL parameters for GET requests
+        if method.upper() == "GET" and url_params:
+            from urllib.parse import urlencode
+            url += "?" + urlencode(url_params)
+
+        # Always include JSON parameters for POST requests
+        if method.upper() == "POST" and json_params:
+            request["json_params"] = json_params  # Ensure the JSON body is populated
+
+        request.update({
+            "method": method.upper(),
+            "url": url,
+            "url_params": url_params,
+            "json_params": json_params if method.upper() == "POST" else None,  # Only include for POST
+        })
 
         return request
 
+
     def send_request(self, request):
+        """ Sends the request while properly handling parameters based on the HTTP method. """
+
         method = request.get("method", "GET").upper()
         response = None
+        url = request["url"]
+        headers = request.get("headers", {})
+        timeout = request.get("timeout", 10)
+        proxies = request.get("proxies", {})
 
         try:
             if method == "GET":
-                response = requests.get(request["url"], headers=request["headers"], timeout=request["timeout"], proxies=request.get("proxies"), allow_redirects=False, verify=False)
+                response = requests.get(url, headers=headers, timeout=timeout, proxies=proxies, allow_redirects=False, verify=False)
             elif method == "POST":
-                response = requests.post(request["url"], headers=request["headers"], timeout=request["timeout"], proxies=request.get("proxies"), allow_redirects=False, verify=False)
+                response = requests.post(url, headers=headers, json=request.get("json_params"), timeout=timeout, proxies=proxies, allow_redirects=False, verify=False)
 
         except Exception as e:
-            self.fuzzer.logger.error(request["url"], f"Error sending request: {e}")
+            self.fuzzer.logger.error(url, f"Error sending request: {e}")
             self.exception_counter.increment()
             return -1  # Return -1 when there's a connection issue
 
         return response
+
 
     def update_progress_bar(self):
         with self.progress_bar_lock:
@@ -246,12 +268,27 @@ class Fuzzer:
                 return False
         return True
 
+
+
     def start(self):
         print(colored("\n\n[#] Commands and Shortcuts", "cyan"))
         print(tabulate(commands.items(), headers=[colored("Commands:", 'cyan'), colored("Shortcut:", 'cyan')], tablefmt="pipe"))
 
-        if self.config.get("jwt"):
-            check_jwt_configuration(self.config["jwt"])
+        # Extract JWT tokens from headers, cookies, and CLI config
+        headers = self.config.get("headers", {})
+        cookies = self.config.get("cookies", "")
+        cli_jwt = self.config.get("jwt")
+
+        jwt_tokens = extract_jwt_from_headers_and_cookies(headers, cookies)
+
+        # Include JWT from CLI argument if provided
+        if cli_jwt:
+            jwt_tokens.append(cli_jwt)
+
+        if jwt_tokens:
+            print(colored(f"\n[*] Found {len(jwt_tokens)} JWT token(s). Checking configuration...\n", "yellow"))
+            for token in jwt_tokens:
+                check_jwt_configuration(token)
 
         total_endpoints = len(self.endpoints)
         print(colored(f"\n\n[#] Starting Fuzzing on {total_endpoints} endpoints...", 'cyan'))
@@ -335,23 +372,31 @@ class PayloadProducer(threading.Thread):
         self.fuzzer = fuzzer
         self.response_analyzer = ResponseAnalyzer()
 
+    def _populate_json_payload(self, json_schema):
+        """ Recursively populate JSON parameters based on their structure. """
+        if isinstance(json_schema, dict):
+            populated = {}
+            for key, value in json_schema.items():
+                if isinstance(value, dict):  # Handle nested objects
+                    populated[key] = self._populate_json_payload(value)
+                elif isinstance(value, list) and value and isinstance(value[0], dict):  
+                    populated[key] = [self._populate_json_payload(value[0])]
+                else:
+                    populated[key] = self.fuzzer.payload_generator.generate_value(value)
+            return populated
+        return json_schema
+
     def run(self):
         total_payloads = 0
-
-        # Limit the number of payloads per context
         max_payloads_per_context = 200  
-
         unique_payloads = set()
 
         print(colored("\n[*] Generating Payloads", 'light_magenta'))
 
         with tqdm(total=len(self.fuzzer.endpoints), desc="") as progress_bar:
-            for method, url, url_params, json_params in self.fuzzer.endpoints:
+            for method, url, url_params, json_params, response_types in self.fuzzer.endpoints:
                 try:
-                    # Get the next request to send
                     request = self.fuzzer.get_next_request(url, method, url_params, json_params)
-
-                    # Send the request and get the response
                     response = self.fuzzer.send_request(request)
 
                     if response is None or response == -1:
@@ -361,49 +406,43 @@ class PayloadProducer(threading.Thread):
                         else:
                             self.fuzzer.logger.error(url, f"No response received for {url}. Skipping this endpoint.")
                         continue
-                    
-                    # Analyze the response to determine its context
+
                     self.response_analyzer.analyze_response(response)
-
                     most_common_context = max(set(self.response_analyzer.contexts), key=self.response_analyzer.contexts.count)
-
-                    # Count the number of payloads for the most common context
                     payloads_count = self.fuzzer.payload_generator.count_payloads(most_common_context)
                     total_payloads += min(payloads_count, max_payloads_per_context)
-
-                    # Generate payloads for the most common context
                     payload_dicts = self.fuzzer.payload_generator.generate_payloads(most_common_context, max_payloads_per_context)
 
                     for payload_dict in payload_dicts[:max_payloads_per_context]:
-                        # Add URL parameters to the payload
                         formatted_url = url
-                        for param_name, param_type in url_params.items():
-                            param_value = self.fuzzer.payload_generator.generate_value(param_type)  # Generate the parameter value
-                            formatted_url = formatted_url.replace('{' + param_name + '}', param_value)
+                        query_params = {}
 
-                        # Add JSON parameters to the payload
-                        payload_json = {}
-                        for param_name, param_type in json_params.items():
-                            param_value = self.fuzzer.payload_generator.generate_value(param_type)  # Generate the parameter value
-                            payload_json[param_name] = param_value
-                            
+                        for param_name, param_type in url_params.items():
+                            param_value = self.fuzzer.payload_generator.generate_value(param_type)
+                            formatted_url = formatted_url.replace(f'{{{param_name}}}', param_value)
+
+                        for param_name, param_type in json_params.get("query", {}).items():
+                            query_params[param_name] = self.fuzzer.payload_generator.generate_value(param_type)
+
+                        if query_params:
+                            formatted_url += "?" + urlencode(query_params)
+
+                        payload_json = self._populate_json_payload(json_params)
                         payload_json_str = json.dumps(payload_json, sort_keys=True)
-                        payload_dict_str = json.dumps(payload_dict, sort_keys=True) 
+                        payload_dict_str = json.dumps(payload_dict, sort_keys=True)
                         payload_tuple = (method, formatted_url, payload_json_str, most_common_context, payload_dict_str)
-                        unique_payloads.add(payload_tuple)  # Add the payload tuple to the set of unique payloads
+                        unique_payloads.add(payload_tuple)
 
                     progress_bar.update(1)
                 except Exception as e:
                     self.fuzzer.logger.error(url, f"Error in payload production: {e}")
                     self.fuzzer.exception_counter.increment()
 
-        # Open a file for writing
         with open('my_set.txt', 'w') as file:
             file.write(str(unique_payloads))
-            
-        # Replace the original queue with a new queue containing unique payloads
+        
         self.fuzzer.payload_queue = queue.Queue()
         for payload_tuple in unique_payloads:
             self.fuzzer.payload_queue.put((payload_tuple[0], payload_tuple[1], json.loads(payload_tuple[2]), payload_tuple[3], payload_tuple[4]))
 
-        self.fuzzer.payload_queue.put(None)  # Signal that payload generation is done
+        self.fuzzer.payload_queue.put(None)
