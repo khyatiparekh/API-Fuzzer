@@ -1,8 +1,29 @@
-import jwt
+import jwt, re
 import binascii
 import json
 import base64
 from termcolor import colored
+
+JWT_REGEX = r"(?:^|[\s;,])eyJ[a-zA-Z0-9_-]+?\.[a-zA-Z0-9_-]+?\.[a-zA-Z0-9_-]+?(?:$|[\s;,])"
+
+def extract_jwt_from_headers_and_cookies(headers, cookies):
+    """ Extract JWT tokens from headers and cookies using regex. """
+    jwt_tokens = set()
+
+    # Extract JWTs from headers
+    if headers:
+        for header_name, header_value in headers.items():
+            matches = re.findall(JWT_REGEX, header_value)
+            jwt_tokens.update(matches)
+
+    # Extract JWTs from cookies
+    if cookies:
+        cookie_pairs = cookies.split(";")
+        for cookie in cookie_pairs:
+            matches = re.findall(JWT_REGEX, cookie)
+            jwt_tokens.update(matches)
+
+    return list(jwt_tokens)  # Convert set to list
 
 def check_jwt_configuration(jwt_token):
     """
