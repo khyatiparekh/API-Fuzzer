@@ -159,6 +159,9 @@ class Worker(threading.Thread):
 
         # Clean the header values
         cleaned_headers = {k: clean_header_value(v) for k, v in headers.items()}
+        # ✅ Remove 'Connection' header if present
+        cleaned_headers.pop('Connection', None)
+
         pre_fuzz_request['headers'].update(cleaned_headers)
 
         # Initialize encoding with a default value
@@ -186,7 +189,7 @@ class Worker(threading.Thread):
                     break
             encoding = payload_encoding
 
-        pre_fuzz_request['headers']['Content-Type'] = f'application/json; charset={encoding}'
+        # pre_fuzz_request['headers']['Content-Type'] = f'application/json; charset={encoding}'
 
         if 'timeout' in pre_fuzz_request:
             del pre_fuzz_request['timeout']
@@ -261,6 +264,9 @@ class Worker(threading.Thread):
                 connection = http.client.HTTPConnection(host, port, timeout=timeout)
             else:
                 connection = http.client.HTTPSConnection(host, port, timeout=timeout)
+
+        # ✅ Remove 'Connection' header before sending
+        headers.pop('Connection', None)
 
         # Encode headers using the detected encoding
         encoded_headers = {k: v.encode(encoding).decode('latin1') for k, v in headers.items()}
