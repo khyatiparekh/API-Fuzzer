@@ -396,7 +396,7 @@ class PayloadProducer(threading.Thread):
 
     def run(self):
         total_payloads = 0
-        max_payloads_per_context = 200  
+        max_payloads_per_context = 200
         unique_payloads = set()
 
         print(colored("\n[*] Generating Payloads", 'light_magenta'))
@@ -413,9 +413,9 @@ class PayloadProducer(threading.Thread):
                             self.fuzzer.toggle_pause()
                         else:
                             self.fuzzer.logger.error(url, f"No response received for {url}. Skipping this endpoint.")
-                        continue
-
-                    self.response_analyzer.analyze_response(response)
+                        self.response_analyzer.dummy_analyze_response()
+                    else:
+                        self.response_analyzer.analyze_response(response)
                     most_common_context = max(set(self.response_analyzer.contexts), key=self.response_analyzer.contexts.count)
                     payloads_count = self.fuzzer.payload_generator.count_payloads(most_common_context)
                     total_payloads += min(payloads_count, max_payloads_per_context)
