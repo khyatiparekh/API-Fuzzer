@@ -14,3 +14,7 @@ class ResponseAnalyzer:
             self.contexts.append("html")
         else:
             self.contexts.append("unknown")
+
+    def dummy_analyze_response(self):
+        # Analyze the response to determine its context
+        self.contexts.append("unknown")
