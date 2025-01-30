@@ -32,32 +32,36 @@ class PayloadGenerator:
         return mutator(self, payload)
 
     def generate_payloads(self, context, max_combinations=None):
-        """ Generate fuzzing payloads while preventing excessive memory usage. """
-        payload_types = self.context_payloads.get(context, {})
+        payload_types = self.context_payloads.get(context, [])
 
         if not payload_types:
             return []
 
-        # Sample payload lists before generating combinations
-        sampled_payloads = []
-        for pt in payload_types.get("payload_types", []):
-            payload_list = getattr(self, pt, [])
-            if len(payload_list) > max_combinations:
-                sampled_payloads.append(random.sample(payload_list, max_combinations))
-            else:
-                sampled_payloads.append(payload_list)
+        combined_payloads = itertools.product(*[getattr(self, pt) for pt in payload_types["payload_types"]])
 
-        # Generate Cartesian product of sampled payloads
-        combined_payloads = list(itertools.product(*sampled_payloads))
+        # Calculate the cartesian product length
+        product_length = 1
+        for pt in payload_types["payload_types"]:
+            product_length *= len(getattr(self, pt))
 
-        # Further limit payloads if needed
-        if len(combined_payloads) > max_combinations:
-            combined_payloads = random.sample(combined_payloads, max_combinations)
+        if max_combinations is not None:
+            # Get a random sample of indices
+            indices = random.sample(range(product_length), min(max_combinations, product_length))
+            indices_set = set(indices)
+
+            # Create a separate function that yields elements from combined_payloads with the selected indices
+            def sampled_product(combined_payloads, indices_set):
+                for i, item in enumerate(combined_payloads):
+                    if i in indices_set:
+                        yield item
+
+            combined_payloads = sampled_product(combined_payloads, indices_set)
 
         def payload_generator():
+            combined_payloads_list = list(combined_payloads)
             generated_payloads = []
 
-            for combination in combined_payloads:
+            for combination in combined_payloads_list:
                 mutated_payloads = tuple(self.apply_random_mutation(payload, context) for payload in combination)
                 injection_point = random.choice(self.injection_points)
 
@@ -68,7 +72,7 @@ class PayloadGenerator:
                         'injection_point': injection_point
                     })
 
-                # Add HTTP methods separately
+            for combination in combined_payloads_list:
                 for method in self.all_http_methods:
                     generated_payloads.append({
                         'type': context,
@@ -76,19 +80,20 @@ class PayloadGenerator:
                         'injection_point': "http_method"
                     })
 
-            # Additional payloads processing
             additional_payloads = self.context_payloads.get(context, {}).get("additional_payloads", {})
+            num_additional_payloads = product_length
+
             total_additional_payloads_generated = 0
 
             for payload_type, payload_info in additional_payloads.items():
+                num_injection_points = len(payload_info["injection_points"])
+                payloads_per_injection_point = num_additional_payloads // num_injection_points
+
                 for injection_point in payload_info["injection_points"]:
-                    if total_additional_payloads_generated >= max_combinations:
+                    if total_additional_payloads_generated >= num_additional_payloads:
                         break
 
-                    selected_payloads = random.sample(
-                        payload_info["payloads"], min(len(payload_info["payloads"]), max_combinations - total_additional_payloads_generated)
-                    )
-                    
+                    selected_payloads = random.sample(payload_info["payloads"], min(payloads_per_injection_point, len(payload_info["payloads"])))
                     for payload in selected_payloads:
                         generated_payloads.append({
                             'type': context,
@@ -96,14 +101,12 @@ class PayloadGenerator:
                             'injection_point': injection_point
                         })
                         total_additional_payloads_generated += 1
-                        if total_additional_payloads_generated >= max_combinations:
+                        if total_additional_payloads_generated >= num_additional_payloads:
                             break
 
             return generated_payloads
-
         return payload_generator()
-
-
+    
     def mutate_length(self, payload, min_len=0, max_len=100):
         new_len = random.randint(min_len, max_len)
         return payload[:new_len] + "".join(random.choices(string.printable, k=new_len - len(payload)))
